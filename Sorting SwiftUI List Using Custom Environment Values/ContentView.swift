@@ -14,19 +14,26 @@ enum SortOrder {
 struct Sort {
     var sortOrder: SortOrder = .asc
     
-    func callAsFunction<T: Comparable, U>(_ array: [U], by keyPath: KeyPath<U, T>, _ order: SortOrder = .asc) -> [U] {
+    func callAsFunction<U, T: Comparable>(_ array: [U], by keyPath: KeyPath<U, T>?, _ order: SortOrder = .asc) -> [U] {
         
         switch order {
         case .asc:
-            return array.sorted { $0[keyPath: keyPath] < $1[keyPath: keyPath] }
+            return keyPath == nil ? array : array.sorted { $0[keyPath: keyPath!] < $1[keyPath: keyPath!] }
         case .desc:
-            return array.sorted { $0[keyPath: keyPath] > $1[keyPath: keyPath] }
+            return keyPath == nil ? array : array.sorted { $0[keyPath: keyPath!] > $1[keyPath: keyPath!] }
         }
     }
 }
 
 extension EnvironmentValues {
-    @Entry var sort = Sort()
+    var sort: Sort {
+        get { self[SortKey.self] }
+        set { self[SortKey.self] = newValue }
+    }
+}
+
+private struct SortKey: EnvironmentKey {
+    static let defaultValue = Sort()
 }
 
 struct Movie: Identifiable {
@@ -40,6 +47,7 @@ struct ContentView: View {
     @Environment(\.sort) var sort
     
     @State private var sortOrder: SortOrder = .asc
+    @State private var sortedByTitle = true
     
     let movies = [
         Movie(title: "Batman", rating: 9.2),
@@ -50,11 +58,15 @@ struct ContentView: View {
     
     var body: some View {
         List {
-            Button(sortOrder == .asc ? "ASC" : "DESC") {
-                sortOrder = sortOrder == .asc ? .desc : .asc
+            HStack {
+                Button(sortOrder == .asc ? "ASC" : "DESC") {
+                    sortOrder = sortOrder == .asc ? .desc : .asc
+                }
+                
+                Toggle("", isOn: $sortedByTitle)
             }
             
-            ForEach(sort(movies, by: \.title, sortOrder)) { movie in
+            ForEach(sortedByTitle ? sort(movies, by: \.title, sortOrder) : sort(movies, by: \.rating, sortOrder)) { movie in
                 HStack {
                     Text(movie.title)
                     Spacer()
@@ -69,3 +81,4 @@ struct ContentView: View {
     ContentView()
         .environment(\.sort, Sort())
 }
+
